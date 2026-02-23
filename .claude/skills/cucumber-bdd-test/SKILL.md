@@ -113,7 +113,7 @@ Gherkin 문장 (비즈니스 언어)
     ↓ 패턴 매칭
 Step Definition (어댑터)
     ↓ 실행
-RestAssured / Repository (기술 구현)
+RestAssured / JdbcTemplate SQL (기술 구현)
 ```
 
 Cucumber가 시나리오의 각 스텝을 만나면, 등록된 Step Definition 중 **표현식이 일치하는 메서드**를 찾아 실행한다.
@@ -283,7 +283,9 @@ Gift(값 객체): from(Member) → to(Member), Option, quantity, message
 
 대상 기능에 대해 "사용자 여정(User Journey)" 기준으로 시나리오를 도출해라.
 
-- 정상 흐름(Happy Path)과 실패 흐름(Edge Case) 모두 포함
+- **정상 흐름(Happy Path)과 실패 흐름(Edge Case) 모두 반드시 포함**
+  - 모든 기능에 대해 최소 1개 이상의 실패 시나리오를 작성해라
+  - 실패 시나리오 예: 필수 값 누락, 존재하지 않는 리소스 참조, 재고 부족, 중복 생성 등
 - 각 시나리오는 **비즈니스 용어**로 작성 (기술 용어 금지)
 - 관찰 가능한 결과를 명시
 - **상태 변화는 실패 시나리오로 증명**: 부수효과(재고 차감 등)를 검증할 때 Repository를 조회하지 말고, 후속 API 호출의 성공/실패로 증명해라
@@ -499,6 +501,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
 
@@ -509,11 +512,23 @@ public class GiftStepDefinitions extends CucumberSpringConfiguration {
     @Autowired
     private ScenarioContext context;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @조건("{string} 옵션의 재고가 {int}개 있다")
     public void 옵션_재고_설정(String optionName, int quantity) {
         RestAssured.port = port;
-        // Repository로 셋업 (Option은 컨트롤러 없음)
-        // ... 셋업 코드 ...
+        // JdbcTemplate SQL로 셋업 (Option은 컨트롤러 없음)
+        jdbcTemplate.update("INSERT INTO category (name) VALUES (?)", "테스트카테고리");
+        Long categoryId = jdbcTemplate.queryForObject("SELECT id FROM category WHERE name = ?", Long.class, "테스트카테고리");
+        jdbcTemplate.update("INSERT INTO product (name, price, image_url, category_id) VALUES (?, ?, ?, ?)",
+                "테스트상품", 5000, "http://img.com/test.jpg", categoryId);
+        Long productId = jdbcTemplate.queryForObject(
+                "SELECT id FROM product WHERE name = ? AND category_id = ?", Long.class, "테스트상품", categoryId);
+        jdbcTemplate.update("INSERT INTO option (name, quantity, product_id) VALUES (?, ?, ?)",
+                optionName, quantity, productId);
+        Long optionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM option WHERE name = ? AND product_id = ?", Long.class, optionName, productId);
         context.set("optionId", optionId);
     }
 
@@ -620,10 +635,32 @@ public class CommonStepDefinitions extends CucumberSpringConfiguration {
 
 ### 데이터 셋업 규칙
 
-- 테스트 데이터는 **API 호출을 통해** 셋업한다 (Repository 직접 사용 금지)
-  - 단, 컨트롤러가 없는 엔티티(Member, Option, Wish)는 Repository로 셋업한다
+- 테스트 데이터는 **API 호출을 통해** 셋업한다
+  - 단, 컨트롤러가 없는 엔티티(Member, Option, Wish)는 **JdbcTemplate SQL로 셋업**한다 (Repository 직접 사용 금지)
+  - SQL 셋업 시 `jdbcTemplate.update("INSERT INTO ...")`로 데이터를 삽입하고, `jdbcTemplate.queryForObject("SELECT id FROM ...")`로 생성된 ID를 조회한다
 - 각 시나리오는 독립적으로 실행 가능해야 한다
 - `@Before` Hook으로 시나리오 시작 전 DB를 초기화한다
+
+**SQL 셋업 예시:**
+
+```java
+// Member 셋업 (컨트롤러 없음 → SQL)
+jdbcTemplate.update("INSERT INTO member (name, email) VALUES (?, ?)", "보내는사람", "sender@test.com");
+Long senderId = jdbcTemplate.queryForObject(
+        "SELECT id FROM member WHERE email = ?", Long.class, "sender@test.com");
+
+// Option 셋업 (컨트롤러 없음 → SQL, 선행 데이터도 SQL로)
+jdbcTemplate.update("INSERT INTO category (name) VALUES (?)", "테스트카테고리");
+Long categoryId = jdbcTemplate.queryForObject("SELECT id FROM category WHERE name = ?", Long.class, "테스트카테고리");
+jdbcTemplate.update("INSERT INTO product (name, price, image_url, category_id) VALUES (?, ?, ?, ?)",
+        "테스트상품", 5000, "http://img.com/test.jpg", categoryId);
+Long productId = jdbcTemplate.queryForObject(
+        "SELECT id FROM product WHERE name = ? AND category_id = ?", Long.class, "테스트상품", categoryId);
+jdbcTemplate.update("INSERT INTO option (name, quantity, product_id) VALUES (?, ?, ?)",
+        "옵션A", 10, productId);
+Long optionId = jdbcTemplate.queryForObject(
+        "SELECT id FROM option WHERE name = ? AND product_id = ?", Long.class, "옵션A", productId);
+```
 
 ### 검증 원칙 (API 경계 검증)
 
