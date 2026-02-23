@@ -4,8 +4,24 @@
 
 ```bash
 ./gradlew bootRun        # 애플리케이션 실행
-./gradlew test           # 전체 테스트 실행 (JUnit + Cucumber)
+./gradlew test           # 전체 테스트 실행 (H2 인메모리 DB)
+./gradlew cucumberTest   # Cucumber 테스트 실행 (PostgreSQL + Docker)
 ./gradlew build          # 빌드 + 테스트
+```
+
+## 사전 준비 (cucumberTest)
+
+`./gradlew cucumberTest`를 실행하려면 Docker가 필요하다.
+
+```bash
+# Colima + Docker CLI 설치 (macOS)
+brew install colima docker docker-compose
+
+# Colima 시작
+colima start
+
+# 확인
+docker compose version
 ```
 
 ## 테스트
@@ -18,8 +34,22 @@
 ./gradlew test --tests "gift.GiftAcceptanceTest"
 ```
 
-### Cucumber BDD 테스트
+### Cucumber BDD 테스트 (H2)
 
-`src/test/resources/features/` 디렉토리의 한글 Gherkin 시나리오가 `./gradlew test` 실행 시 자동으로 함께 실행된다.
+`src/test/resources/features/` 디렉토리의 한글 Gherkin 시나리오가 `./gradlew test` 실행 시 H2 인메모리 DB로 함께 실행된다.
+
+### Cucumber BDD 테스트 (PostgreSQL)
+
+```bash
+./gradlew cucumberTest
+```
+
+Docker Compose로 PostgreSQL을 자동 기동하고, Cucumber 시나리오를 실행한 뒤, 컨테이너를 정리한다.
+
+| 단계 | 태스크 | 동작 |
+|------|--------|------|
+| 1 | `dockerComposeUp` | PostgreSQL 컨테이너 기동 + 헬스체크 대기 |
+| 2 | `cucumberTest` | `spring.profiles.active=cucumber`로 Cucumber 실행 |
+| 3 | `dockerComposeDown` | 컨테이너 정리 (테스트 실패 시에도 실행) |
 
 Cucumber HTML 리포트: `build/reports/cucumber/cucumber-report.html`
