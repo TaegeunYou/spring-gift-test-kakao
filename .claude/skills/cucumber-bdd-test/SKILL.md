@@ -21,29 +21,6 @@ $ARGUMENTS
 
 ---
 
-## 핵심 개념
-
-### Gherkin: 협업을 위한 도메인 언어
-
-Gherkin은 **프로그래밍 언어가 아니라 도메인 언어**다:
-
-- 비즈니스 행동을 표현한다
-- **누구나 읽을 수 있어야 한다** — 기획자, QA, 비개발자 모두
-- 구현이 바뀌어도 Gherkin은 유지되어야 한다
-- Feature 파일만 읽으면 비즈니스 규칙을 이해할 수 있어야 한다
-
-### Given / When / Then의 의미
-
-| 한글 키워드 | 영어 | 의미 | 역할 |
-|-------------|------|------|------|
-| 조건 | Given | **초기 상태** | 시나리오의 전제조건을 설정한다. 시스템을 알려진 상태로 만든다 |
-| 만일 | When | **사용자 행동** | 테스트 대상이 되는 핵심 행동을 수행한다. 시나리오당 하나가 이상적 |
-| 그러면 | Then | **관찰 가능한 결과** | 행동의 결과를 검증한다. 반드시 관찰 가능한 출력이어야 한다 |
-| 그리고 | And | 이전 키워드 계속 | Given/When/Then에 추가 조건을 덧붙인다 |
-| 하지만 | But | 이전 키워드 계속 | 부정 조건을 강조할 때 사용 (Then 뒤에서 주로 사용) |
-
-**Given은 `@Before` Hook과 다르다**: `@Before` Hook에서 일어나는 일은 Feature를 읽는 사람에게 보이지 않는다. 전제조건이 비즈니스 맥락에서 의미가 있다면 Given 스텝으로 명시해라.
-
 ### Gherkin 작성 3원칙
 
 **1. 도메인 언어로 표현하라**
@@ -89,190 +66,6 @@ Gherkin은 **프로그래밍 언어가 아니라 도메인 언어**다:
     그러면 재고 부족으로 실패한다
 ```
 
-### 핵심 키워드 레퍼런스
-
-| 키워드 | 역할 |
-|--------|------|
-| `io.cucumber:cucumber-spring` | Cucumber와 Spring TestContext를 통합하는 모듈. Spring의 `TestContextManager`를 내부적으로 사용 |
-| `@CucumberContextConfiguration` | glue 경로의 설정 클래스에 선언. Cucumber가 Spring Boot 테스트 컨텍스트를 인식하게 한다. `@SpringBootTest`와 함께 사용 |
-| `@ScenarioScope` | Spring Bean을 시나리오 단위 생명주기로 관리. 시나리오 시작 전 생성, 종료 후 폐기. 시나리오 간 상태 오염 방지 |
-| `io.cucumber.java.ko.*` | 한글 Step Definition 어노테이션 패키지. `@조건`, `@만일`, `@그러면`, `@그리고`, `@하지만` 제공 |
-| `src/test/resources/features/` | Feature 파일(.feature) 저장 위치. Cucumber가 이 경로에서 시나리오를 탐색 |
-| JUnit Platform Suite API | `@Suite` + `@IncludeEngines("cucumber")`로 Cucumber 엔진을 JUnit Platform 위에서 실행 |
-
----
-
-## Step Definitions: Gherkin과 코드의 연결
-
-### Step Definition은 Adapter다
-
-Step Definition의 역할은 **Gherkin 문장(비즈니스 언어)을 기술 구현으로 변환**하는 것이다:
-
-```
-Gherkin 문장 (비즈니스 언어)
-    ↓ 패턴 매칭
-Step Definition (어댑터)
-    ↓ 실행
-RestAssured / JdbcTemplate SQL (기술 구현)
-```
-
-Cucumber가 시나리오의 각 스텝을 만나면, 등록된 Step Definition 중 **표현식이 일치하는 메서드**를 찾아 실행한다.
-
-### Cucumber Expressions로 파라미터 추출
-
-Gherkin 스텝의 값을 Step Definition 메서드 파라미터로 자동 변환한다.
-
-**Built-in 파라미터 타입:**
-
-| 표현식 | 매칭 대상 | Java 타입 | 예시 |
-|--------|-----------|-----------|------|
-| `{string}` | `"쌍따옴표"` 또는 `'홑따옴표'` 안의 텍스트 | `String` | `"아이폰"` → `아이폰` |
-| `{int}` | 정수 (예: `71`, `-19`) | `int` / `Integer` | `10` → `10` |
-| `{long}` | 큰 정수 | `long` / `Long` | `1` → `1L` |
-| `{float}` | 소수 (예: `3.6`, `.8`) | `float` / `Float` | `3.6` → `3.6f` |
-| `{double}` | 소수 (64비트) | `double` / `Double` | `3.14` → `3.14d` |
-| `{word}` | 공백 없는 단일 단어 | `String` | `banana` (O), `banana split` (X) |
-| `{bigdecimal}` | 소수 → BigDecimal | `BigDecimal` | |
-| `{biginteger}` | 정수 → BigInteger | `BigInteger` | |
-| `{}` | 익명 — 아무 텍스트 매칭 (`/.*/`) | `String` | |
-
-**추가 표현식 문법:**
-
-- **선택적 텍스트**: `개(를)` → `개` 또는 `개를` 모두 매칭
-- **대안 텍스트**: `성공/실패` → `성공` 또는 `실패` 매칭
-- **이스케이프**: `\{`, `\}`, `\(`, `\)`, `\/` (Java에서는 `\\{` 등 이중 백슬래시)
-
-**예시 — Gherkin과 Step Definition의 매핑:**
-
-```gherkin
-만일 회원 1번이 "아이폰 128GB" 3개를 선물한다
-```
-
-```java
-@만일("회원 {long}번이 {string} {int}개를 선물한다")
-public void 선물_보내기(Long fromId, String optionName, int qty) {
-    // fromId = 1L, optionName = "아이폰 128GB", qty = 3
-}
-```
-
-### ScenarioContext: Step 간 상태 공유
-
-**문제:** Step Definition은 메서드 단위로 분리되어 있지만, Step 간 데이터 공유가 필요하다.
-
-- Given에서 생성한 `optionId`를 When에서 사용
-- When의 `Response`를 Then에서 검증
-
-**해결:** `@ScenarioScope` Bean을 활용한 ScenarioContext 패턴
-
-`@ScenarioScope`는 **시나리오 실행 전에 Bean을 생성하고, 시나리오 종료 후 폐기**한다. 따라서 시나리오마다 새로운 인스턴스가 보장되어 상태 오염이 없다.
-
-```java
-@Component
-@ScenarioScope
-public class ScenarioContext {
-    private Response lastResponse;
-    private final Map<String, Object> store = new HashMap<>();
-
-    public Response getLastResponse() { return lastResponse; }
-    public void setLastResponse(Response response) { this.lastResponse = response; }
-
-    public void set(String key, Object value) { store.put(key, value); }
-
-    @SuppressWarnings("unchecked")
-    public <T> T get(String key, Class<T> type) { return (T) store.get(key); }
-}
-```
-
-```java
-// ❌ Step Definition 인스턴스 필드 — Cucumber가 클래스를 재생성하지만 명시적이지 않음
-private Long optionId;
-
-// ✅ ScenarioContext — 시나리오 단위 격리가 Spring에 의해 보장됨
-context.set("optionId", optionId);
-Long optionId = context.get("optionId", Long.class);
-```
-
-**주의:** Cucumber-JVM은 시나리오마다 glue 클래스의 새 인스턴스를 생성하므로 인스턴스 필드로도 동작하지만, `@ScenarioScope` Bean을 사용하면 Spring DI를 통해 **여러 Step Definition 클래스 간에도 안전하게 상태를 공유**할 수 있다.
-
-### Hook 실행 순서
-
-| Hook | 실행 시점 | 용도 |
-|------|-----------|------|
-| `@BeforeAll` | 모든 시나리오 실행 전 **1회** | 전역 초기화 (DB 마이그레이션 등) |
-| `@Before` | **각 시나리오의 첫 번째 스텝 실행 전** | 데이터 초기화, 상태 리셋 |
-| `@BeforeStep` | 각 스텝 실행 전 | 스텝 단위 전처리 (거의 사용 안 함) |
-| 스텝 실행 | Given → When → Then | |
-| `@AfterStep` | 각 스텝 실행 후 | 스텝 단위 후처리 (거의 사용 안 함) |
-| `@After` | **각 시나리오의 마지막 스텝 실행 후** (실패해도 실행) | 정리, 스크린샷 캡처 |
-| `@AfterAll` | 모든 시나리오 실행 후 **1회** | 전역 정리 |
-
-**실행 순서 제어:** `@Before(order = 10)` — 숫자가 낮을수록 먼저 실행. 같은 order면 선언 순서대로.
-
-**태그 기반 조건 실행:** `@Before("@database")` — 특정 태그가 붙은 시나리오에서만 실행.
-
-**핵심:** `@Before` Hook에서 일어나는 일은 Feature 파일을 읽는 사람에게 **보이지 않는다**. 데이터 초기화처럼 인프라적인 작업만 `@Before`에 넣고, 비즈니스 전제조건은 Given 스텝으로 명시해라.
-
-### RestAssured 포트 설정
-
-`@SpringBootTest(webEnvironment = RANDOM_PORT)`는 매 테스트 컨텍스트마다 랜덤 포트를 할당한다.
-
-```java
-@CucumberContextConfiguration
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class CucumberSpringConfiguration {
-    @LocalServerPort
-    protected int port;  // Spring이 주입하는 실제 포트
-}
-```
-
-Step Definition에서 `CucumberSpringConfiguration`을 상속하여 `port`에 접근하고, RestAssured 호출 전에 `RestAssured.port = port`를 설정한다. **이 설정을 누락하면 기본 포트(8080)로 요청하여 Connection Refused 에러가 발생**한다.
-
-### 검증(Assertion) 라이브러리
-
-Cucumber는 자체 검증 도구를 포함하지 않는다. Then 스텝에서 사용할 라이브러리를 선택한다:
-
-- **Hamcrest** (RestAssured와 자연스럽게 통합): `response.then().body("name", is("교환권"))`
-- **AssertJ**: `assertThat(actual).isEqualTo(expected)`
-- **JUnit 5**: `assertEquals(expected, actual)`
-
-이 프로젝트에서는 RestAssured의 `.then().statusCode()`, `.body()` 체이닝으로 검증한다.
-
----
-
-## 프로젝트 컨텍스트
-
-- 시스템 종류: Spring Boot 3.5.8 백엔드 REST API (Java 21, Gradle)
-- DB: H2 인메모리 (`spring.jpa.open-in-view=false`)
-- 테스트 프레임워크: Cucumber 7 + JUnit Platform + RestAssured + @SpringBootTest
-- 외부 의존성: 카카오 API (현재 FakeGiftDelivery로 대체됨, GiftDelivery 인터페이스)
-- 사용자 식별: `Member-Id` 요청 헤더 기반 (인증 시스템 없음)
-
-### API 엔드포인트
-
-| 메서드 | 경로 | 설명 | 요청 바디/헤더 |
-|--------|------|------|----------------|
-| POST | /api/categories | 카테고리 생성 | `{name}` |
-| GET | /api/categories | 카테고리 목록 조회 | - |
-| POST | /api/products | 상품 등록 | `{name, price, imageUrl, categoryId}` |
-| GET | /api/products | 상품 목록 조회 | - |
-| POST | /api/gifts | 선물하기 | `{optionId, quantity, receiverId, message}` + Header `Member-Id` |
-
-### 도메인 엔티티 관계
-
-```
-Category 1──* Product 1──* Option
-Member 1──* Wish *──1 Product
-Gift(값 객체): from(Member) → to(Member), Option, quantity, message
-```
-
-### 핵심 비즈니스 규칙
-
-- 선물하기 시 Option.decrease(quantity)로 재고 차감 → 재고 부족 시 IllegalStateException
-- GiftDelivery.deliver(gift)로 외부 전송 (인터페이스 기반, 현재 Fake 구현)
-- 상품은 반드시 카테고리에 속해야 함
-- 옵션은 반드시 상품에 속해야 함
-- 위시리스트는 회원+상품 조합
-
 ---
 
 ## 작업 절차
@@ -294,40 +87,7 @@ Gift(값 객체): from(Member) → to(Member), Option, quantity, message
 
 한글 Gherkin 키워드(`# language: ko`)를 사용하여 `.feature` 파일을 작성해라.
 
-**한글 Gherkin 키워드 매핑:**
-
-| 영어 | 한글 |
-|------|------|
-| Feature | 기능 |
-| Scenario | 시나리오 |
-| Scenario Outline | 시나리오 개요 |
-| Examples | 예 |
-| Given | 조건 |
-| When | 만일 |
-| Then | 그러면 |
-| And | 그리고 |
-| But | 하지만 |
-| Background | 배경 |
-
 **Feature 파일 위치:** `src/test/resources/features/{기능명}.feature`
-
-**Feature 파일 예시:**
-
-```gherkin
-# language: ko
-기능: 카테고리 관리
-  사용자가 상품 카테고리를 생성하고 조회할 수 있다.
-
-  시나리오: 유효한 이름으로 카테고리를 생성한다
-    만일 "교환권" 이름으로 카테고리를 생성한다
-    그러면 카테고리가 성공적으로 생성된다
-    그리고 카테고리 이름이 "교환권"이다
-
-  시나리오: 카테고리 생성 후 목록에서 조회된다
-    조건 "교환권" 카테고리가 등록되어 있다
-    만일 카테고리 목록을 조회한다
-    그러면 목록에 "교환권" 카테고리가 포함되어 있다
-```
 
 ### 3단계: 우선순위
 
@@ -350,10 +110,10 @@ Feature 파일의 각 스텝에 대응하는 Java Step Definition 코드를 작�
 build.gradle에 아래 의존성을 추가한다:
 
 ```groovy
-testImplementation 'io.cucumber:cucumber-java:7.20.1'
-testImplementation 'io.cucumber:cucumber-spring:7.20.1'
-testImplementation 'io.cucumber:cucumber-junit-platform-engine:7.20.1'
-testImplementation 'org.junit.platform:junit-platform-suite'
+testImplementation 'io.cucumber:cucumber-java:7.20.1'           // Cucumber 코어 + io.cucumber.java.ko 한글 어노테이션 포함
+testImplementation 'io.cucumber:cucumber-spring:7.20.1'         // Spring 통합 — TestContextManager로 ApplicationContext 초기화, Step Definition에 Bean 주입
+testImplementation 'io.cucumber:cucumber-junit-platform-engine:7.20.1'  // JUnit Platform에서 Cucumber 엔진 자동 탐색
+testImplementation 'org.junit.platform:junit-platform-suite'    // JUnit Platform Suite API (단, @Suite 클래스는 사용하지 않음)
 testImplementation 'io.rest-assured:rest-assured'
 ```
 
@@ -369,13 +129,6 @@ cucumber.glue=gift.cucumber
 cucumber.features=src/test/resources/features
 cucumber.snippet-type=camelcase
 ```
-
-| 설정 키 | 역할 |
-|---------|------|
-| `cucumber.plugin` | 리포터 플러그인. `pretty`(콘솔 출력), `html:`(HTML 리포트), `json:`(JSON), `junit:`(JUnit XML) |
-| `cucumber.glue` | Step Definition, Hook이 위치한 Java 패키지 |
-| `cucumber.features` | .feature 파일 탐색 경로 |
-| `cucumber.snippet-type` | 미구현 스텝의 스니펫 스타일. `camelcase` 또는 `underscore` |
 
 ### Test Runner
 
@@ -487,6 +240,8 @@ public class ScenarioContext {
 **패키지:** `src/test/java/gift/cucumber/steps/`
 
 **네이밍:** `{기능명}StepDefinitions.java` (예: `CategoryStepDefinitions.java`)
+
+`io.cucumber.java.ko` 패키지는 한글 Gherkin 키워드(`@조건`, `@만일`, `@그러면`, `@그리고`)를 Java Step Definition 어노테이션으로 제공한다. `cucumber-java` 의존성에 포함되어 있다.
 
 ```java
 package gift.cucumber.steps;
@@ -641,27 +396,6 @@ public class CommonStepDefinitions extends CucumberSpringConfiguration {
 - 각 시나리오는 독립적으로 실행 가능해야 한다
 - `@Before` Hook으로 시나리오 시작 전 DB를 초기화한다
 
-**SQL 셋업 예시:**
-
-```java
-// Member 셋업 (컨트롤러 없음 → SQL)
-jdbcTemplate.update("INSERT INTO member (name, email) VALUES (?, ?)", "보내는사람", "sender@test.com");
-Long senderId = jdbcTemplate.queryForObject(
-        "SELECT id FROM member WHERE email = ?", Long.class, "sender@test.com");
-
-// Option 셋업 (컨트롤러 없음 → SQL, 선행 데이터도 SQL로)
-jdbcTemplate.update("INSERT INTO category (name) VALUES (?)", "테스트카테고리");
-Long categoryId = jdbcTemplate.queryForObject("SELECT id FROM category WHERE name = ?", Long.class, "테스트카테고리");
-jdbcTemplate.update("INSERT INTO product (name, price, image_url, category_id) VALUES (?, ?, ?, ?)",
-        "테스트상품", 5000, "http://img.com/test.jpg", categoryId);
-Long productId = jdbcTemplate.queryForObject(
-        "SELECT id FROM product WHERE name = ? AND category_id = ?", Long.class, "테스트상품", categoryId);
-jdbcTemplate.update("INSERT INTO option (name, quantity, product_id) VALUES (?, ?, ?)",
-        "옵션A", 10, productId);
-Long optionId = jdbcTemplate.queryForObject(
-        "SELECT id FROM option WHERE name = ? AND product_id = ?", Long.class, "옵션A", productId);
-```
-
 ### 검증 원칙 (API 경계 검증)
 
 - **API 응답만으로 검증**한다 — Repository, Service 등 내부 컴포넌트를 직접 조회하지 않는다
@@ -677,58 +411,10 @@ Long optionId = jdbcTemplate.queryForObject(
 - 순서 의존 테스트 금지
 - `RestAssured.port` 설정 누락 주의
 
-### 디렉토리 구조 요약
-
-```
-src/test/
-├── java/gift/cucumber/
-│   ├── CucumberSpringConfiguration.java  # Spring 통합 (@CucumberContextConfiguration)
-│   ├── ScenarioContext.java              # Step 간 상태 공유 (@ScenarioScope)
-│   ├── DataCleanupHook.java              # 데이터 격리 + 포트 설정 (@Before Hook)
-│   └── steps/
-│       ├── CategoryStepDefinitions.java  # 카테고리 스텝
-│       ├── ProductStepDefinitions.java   # 상품 스텝
-│       └── GiftStepDefinitions.java      # 선물하기 스텝
-└── resources/
-    ├── features/
-    │   ├── category.feature              # 카테고리 시나리오
-    │   ├── product.feature               # 상품 시나리오
-    │   └── gift.feature                  # 선물하기 시나리오
-    └── junit-platform.properties         # Cucumber 설정
-```
-
 ---
-
-## 검증
-
-```bash
-./gradlew test
-```
-
-- 모든 Cucumber 시나리오가 실행되고 통과해야 한다
-- 기존 JUnit 테스트도 함께 통과해야 한다
-- 빌드 리포트: `build/reports/cucumber/cucumber-report.html`
 
 ## 규칙
 
-~~- 구현 세부(내부 함수 호출) 기반 설명은 최소화하고, 사용자/시스템 경계에서 관찰 가능한 결과로 말해라.
-- 추측은 '가정' 섹션으로 분리해라. 확실한 근거가 없으면 단정하지 마라.
-- 결과물은 `./gradlew test`로 바로 실행 가능한 코드여야 한다.~~
 - 시나리오 도출 → Gherkin → 우선순위 → 인프라 셋업 → Step Definitions 순서를 반드시 지켜라.
 - Feature 파일의 시나리오는 비개발자도 읽고 이해할 수 있어야 한다.
 - Gherkin에는 도메인 언어만 사용하고, 기술 세부사항은 Step Definition에 캡슐화한다.
-
-## 참고 자료
-
-- [Cucumber 공식 문서](https://cucumber.io/docs/cucumber/)
-- [Step Definitions](https://cucumber.io/docs/cucumber/step-definitions)
-- [Cucumber API (Hooks)](https://cucumber.io/docs/cucumber/api)
-- [Cucumber Expressions](https://github.com/cucumber/cucumber-expressions#readme)
-- [State 관리](https://cucumber.io/docs/cucumber/state)
-- [Assertions](https://cucumber.io/docs/cucumber/checking-assertions)
-- [Configuration](https://cucumber.io/docs/cucumber/configuration)
-- [Reporting](https://cucumber.io/docs/cucumber/reporting)
-- [Mocking and Stubbing](https://cucumber.io/docs/cucumber/mocking-and-stubbing-with-cucumber)
-- [Debugging](https://cucumber.io/docs/cucumber/debugging)
-- [Environment Variables](https://cucumber.io/docs/cucumber/environment-variables)
-- [cucumber-spring (GitHub)](https://github.com/cucumber/cucumber-jvm/tree/main/cucumber-spring)
