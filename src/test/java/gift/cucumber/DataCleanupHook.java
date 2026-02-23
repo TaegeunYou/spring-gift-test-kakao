@@ -18,7 +18,7 @@ public class DataCleanupHook extends CucumberSpringConfiguration {
 
     @Before(order = 0)
     public void setUp() {
-        RestAssured.port = port;
+        RestAssured.port = Integer.parseInt(System.getProperty("test.target.port"));
         if (isPostgresProfile()) {
             jdbcTemplate.execute(
                     "TRUNCATE TABLE wish, option, product, category, member CASCADE");

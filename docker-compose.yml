@@ -12,3 +12,21 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+
+  app:
+    image: spring-gift-test:latest
+    ports:
+      - "28080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/gift_test
+      SPRING_DATASOURCE_USERNAME: gift
+      SPRING_DATASOURCE_PASSWORD: gift
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/categories"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

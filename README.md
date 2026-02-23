@@ -53,3 +53,22 @@ Docker Compose로 PostgreSQL을 자동 기동하고, Cucumber 시나리오를 �
 | 3 | `dockerComposeDown` | 컨테이너 정리 (테스트 실패 시에도 실행) |
 
 Cucumber HTML 리포트: `build/reports/cucumber/cucumber-report.html`
+
+### Docker 기반 실행 (앱 컨테이너화)
+
+애플리케이션을 Docker 컨테이너로 실행하여 프로덕션과 동일한 환경에서 테스트한다.
+
+```bash
+./gradlew dockerBuild        # Docker 이미지 빌드
+./gradlew dockerUp           # PostgreSQL + App 컨테이너 기동
+curl http://localhost:28080   # 애플리케이션 응답 확인
+./gradlew cucumberTest       # Docker 환경에서 테스트
+./gradlew dockerDown         # 컨테이너 정리
+```
+
+| 단계 | 태스크 | 동작 |
+|------|--------|------|
+| 1 | `dockerBuild` | Multi-stage build로 Docker 이미지 생성 (`spring-gift-test:latest`) |
+| 2 | `dockerUp` | PostgreSQL + App 컨테이너 기동 + 헬스체크 대기 |
+| 3 | `cucumberTest` | Docker 앱(28080)에 HTTP 요청, PostgreSQL에 직접 데이터 셋업 |
+| 4 | `dockerDown` | 컨테이너 정리 (테스트 실패 시에도 실행) |

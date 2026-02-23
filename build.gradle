@@ -32,16 +32,24 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeEngines 'cucumber'
+	}
 }
 
-task dockerComposeUp(type: Exec) {
+task dockerBuild(type: Exec) {
+	commandLine 'docker', 'build', '-t', 'spring-gift-test:latest', '.'
+}
+
+task dockerUp(type: Exec) {
 	commandLine 'docker', 'compose', 'up', '-d', '--wait'
 }
 
-task dockerComposeDown(type: Exec) {
+task dockerDown(type: Exec) {
 	commandLine 'docker', 'compose', 'down'
 }
+
+dockerUp.dependsOn dockerBuild
 
 task cucumberTest(type: Test) {
 	description = 'Runs Cucumber tests with PostgreSQL via Docker Compose'
@@ -51,7 +59,9 @@ task cucumberTest(type: Test) {
 		includeEngines 'cucumber'
 	}
 	systemProperty 'spring.profiles.active', 'cucumber'
+	systemProperty 'test.target.port', '28080'
+	systemProperty 'spring.jpa.hibernate.ddl-auto', 'none'
 
-	dependsOn dockerComposeUp
-	finalizedBy dockerComposeDown
+	dependsOn dockerUp
+	finalizedBy dockerDown
 }
