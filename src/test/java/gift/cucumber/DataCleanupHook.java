@@ -3,13 +3,9 @@ package gift.cucumber;
 import io.cucumber.java.Before;
 import io.restassured.RestAssured;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-public class DataCleanupHook {
-
-    @LocalServerPort
-    private int port;
+public class DataCleanupHook extends CucumberSpringConfiguration {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
